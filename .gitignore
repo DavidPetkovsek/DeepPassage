@@ -1,3 +1,10 @@
+*.mp4
+
+#################################################
+# Below is the github default python git ignore #
+#################################################
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
