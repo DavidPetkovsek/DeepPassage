@@ -3,8 +3,8 @@ from tqdm import tqdm
 import argparse
 import os
 
-parser = argparse.ArgumentParser(description='Download videos from youtube from urls in plain text file. (One url per line).')
-parser.add_argument("-u", "--urls", type=str, default="videos.txt", help="The path to the plain text file for processing. default='videos.txt'")
+parser = argparse.ArgumentParser(description='Download videos from youtube from urls in plain text file. (One url per line # for comments).')
+parser.add_argument("-u", "--urls", type=str, default="videos.txt", help="The path to the plain text file for processing urls. default='videos.txt'")
 parser.add_argument("-d", "--directory", type=str, default="videos", help="The path to the folder to save videos to (no closing slash). default='videos'")
 parser.add_argument("-l", "--length", type=int, default=60*45, help="The max length of a video to download in seconds. default=2700")
 parser.add_argument("-r", "--resolution", type=int, default=1080, help="The resolution of video to download. default=1080")
@@ -18,6 +18,11 @@ lines = file.readlines()
 done = []
 for i,line in enumerate(tqdm(lines, desc='Downloading', unit='video')):
     line = line.strip()
+    sections = line.split("#")
+    if len(sections) > 1:
+        line = sections[0].strip()
+    if len(line) <= 0:
+        continue
     tqdm.write(line)
     if not line in done:
         name = "YouTube"
