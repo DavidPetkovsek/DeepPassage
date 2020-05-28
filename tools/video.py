@@ -1,23 +1,24 @@
-from pytube import YouTube# misc
-import os
-import shutil
-import math
-import datetime# plots
-import matplotlib.pyplot as plt
-# %matplotlib inline# image operation
-import cv2
+from pytube import YouTube
 from tqdm import tqdm
+import argparse
+import os
 
+parser = argparse.ArgumentParser(description='Download videos from youtube from urls in plain text file. (One url per line).')
+parser.add_argument("-u", "--urls", type=str, default="videos.txt", help="The path to the plain text file for processing. default='videos.txt'")
+parser.add_argument("-d", "--directory", type=str, default="videos", help="The path to the folder to save videos to (no closing slash). default='videos'")
+parser.add_argument("-l", "--length", type=int, default=60*45, help="The max length of a video to download in seconds. default=2700")
+parser.add_argument("-r", "--resolution", type=int, default=1080, help="The resolution of video to download. default=1080")
+parser.add_argument("-f", "--fps", type=int, default=30, help="The fps of video to download. default=30")
+args = parser.parse_args()
+# Reference
 # https://towardsdatascience.com/the-easiest-way-to-download-youtube-videos-using-python-2640958318ab
 
-file = open('videos.txt', 'r')
+file = open(args.urls, 'r')
 lines = file.readlines()
-
 done = []
-
-for i,line in enumerate(lines):
+for i,line in enumerate(tqdm(lines, desc='Downloading', unit='video')):
     line = line.strip()
-    print(line)
+    tqdm.write(line)
     if not line in done:
         name = "YouTube"
         while name == "YouTube":
@@ -25,15 +26,19 @@ for i,line in enumerate(lines):
                 video = YouTube(line)
                 name = video.title
                 if name == "YouTube":
+                    tqdm.write("Bad name")
                     continue
-                print('Video: "'+name+'"')
-                if len(video.streams.filter(file_extension = "mp4").filter(res='1080p', fps=30)) != 1:
+                tqdm.write('Video: "'+name+'"')
+                if len(video.streams.filter(file_extension = "mp4").filter(res=str(args.resolution)+'p', fps=args.fps)) != 1:
                     for s in video.streams.filter(file_extension = "mp4").order_by('resolution'):
-                        print(str(s))
+                        tqdm.write(str(s))
                 else:
-                    name = video.streams.filter(file_extension = "mp4",res='1080p',fps=30)[0].download(output_path='videos')
+                    if(video.length <= args.length): # do not download if the video is more than 45 minutes
+                        name = video.streams.filter(file_extension = "mp4",res=str(args.resolution)+'p', fps=args.fps)[0].download(output_path=args.directory)
+                    else:
+                        tqdm.write("Too long!")
                     done.append(line)
             except Exception as e:
-                print("oops", e)
+                tqdm.write("oops "+ str(e))
     else:
-        print("Duplicate line \""+line+"\"")
+        tqdm.write("Duplicate line "+str(i)+" \""+line+"\"")
