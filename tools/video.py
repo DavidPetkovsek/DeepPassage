@@ -16,6 +16,7 @@ args = parser.parse_args()
 file = open(args.urls, 'r')
 lines = file.readlines()
 done = []
+totalLengthSeconds = 0
 for i,line in enumerate(tqdm(lines, desc='Downloading', unit='video')):
     line = line.strip()
     sections = line.split("#")
@@ -40,10 +41,12 @@ for i,line in enumerate(tqdm(lines, desc='Downloading', unit='video')):
                 else:
                     if(video.length <= args.length): # do not download if the video is more than 45 minutes
                         name = video.streams.filter(file_extension = "mp4",res=str(args.resolution)+'p', fps=args.fps)[0].download(output_path=args.directory)
+                        totalLengthSeconds += video.length
                     else:
-                        tqdm.write("Too long!")
+                        tqdm.write("Too long! "+str(video.length))
                     done.append(line)
             except Exception as e:
                 tqdm.write("oops "+ str(e))
     else:
         tqdm.write("Duplicate line "+str(i)+" \""+line+"\"")
+print('Total video length downloaded =',totalLengthSeconds)
