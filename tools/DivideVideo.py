@@ -8,9 +8,6 @@ parser = argparse.ArgumentParser(description='Download videos from youtube from 
 parser.add_argument("-m", "--meta", type=str, default="meta.txt", help="The name of the meta file. default='videos.txt'")
 parser.add_argument("-o", "--open", type=str, default="videos", help="The path to the folder to open videos to (no closing slash). default='videos'")
 parser.add_argument("-s", "--save", type=str, default="videos", help="The path to the folder to save videos and meta to (no closing slash). default='videos'")
-# parser.add_argument("-l", "--length", type=int, default=60*45, help="The max length of a video to download in seconds. default=2700")
-# parser.add_argument("-r", "--resolution", type=int, default=1080, help="The resolution of video to download. default=1080")
-# parser.add_argument("-f", "--fps", type=int, default=30, help="The fps of video to download. default=30")
 args = parser.parse_args()
 
 '''
@@ -48,16 +45,16 @@ def handleMouse(event, x, y, flags, param):
         box[0] = x
         box[1] = y
         drawing = True
-        print(box , end='    \r')
+        print(box , end='      \r')
     elif event == cv2.EVENT_LBUTTONUP:
         box[2] = x
         box[3] = y
         drawing = False
-        print(box , end='    \r')
+        print(box , end='      \r')
     elif event == cv2.EVENT_RBUTTONUP or event == cv2.EVENT_RBUTTONDOWN:
         box = [-1,-1,-1,-1]
         drawing = False
-        print(box , end='    \r')
+        print(box , end='      \r')
     if drawing:
         box[2] = x
         box[3] = y
@@ -75,6 +72,7 @@ for file in files:
     categories = {x:False for x in ['still', 'moving', 'fast moving', 'WARNING', 'many stars', 'storms', 'raining', 'lightning', 'night', 'day', 'realtime', 'timelapse', 'water']}
     def display():
         global img, box
+        # if not img is None:
         img2 = np.copy(img)
         if not -1 in box:
             cv2.rectangle(img2,(min(box[0], box[2]),min(box[1], box[3])),(max(box[0], box[2]),max(box[1], box[3])),(50,200,0),2)
@@ -103,7 +101,6 @@ for file in files:
             global categories
             categories[c] = True if t != 0 else False
         cv2.createTrackbar(c, 'control', 0, 1, update)
-    # cv2.resizeWindow('control', 500, 800)
     cv2.setMouseCallback(file[1], handleMouse)
     onChange(0)
     lastS = 0
@@ -111,12 +108,18 @@ for file in files:
     while cap.isOpened():
         if k == ord('k'):
             for i in range(speed):
-                err,img = cap.read()
+                if cap.isOpened():
+                    err,img = cap.read()
+                    if err:
+                        break
+                else:
+                    pos = min(max(pos-1, 0),length)
             display()
             q = cv2.waitKey(max(int(1/30),1)) & 0xff
             if q != 255:
                 k = 0 if q == ord('k') else q
-                cv2.setTrackbarPos('Position', 'control', pos)
+                # cv2.setTrackbarPos('Position', 'control', pos-speed*9)
+            # print(pos)
         while not k in [27]+[ord(x) for x in 'qQjlJLk,.']:
             if k == ord('s'):
                 lastS = pos
