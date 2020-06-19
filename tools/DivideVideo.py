@@ -42,6 +42,8 @@ box = [-1,-1,-1,-1]
 drawing = False
 def handleMouse(event, x, y, flags, param):
     global box, drawing
+    x = max(min(x, 1920), 0)
+    y = max(min(y, 1080), 0)
     if event == cv2.EVENT_LBUTTONDOWN:
         box[0] = x
         box[1] = y
@@ -93,7 +95,7 @@ for file in files:
         for c in categories:
             cv2.setTrackbarPos(c, 'control', 0)
 
-    cv2.namedWindow(file[1])
+    cv2.namedWindow(file[1], cv2.WINDOW_NORMAL)
     cv2.namedWindow('control', cv2.WINDOW_NORMAL)
     cv2.createTrackbar('Position','control', 0, length, onChange)
     for c in categories:
