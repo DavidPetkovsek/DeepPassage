@@ -69,7 +69,9 @@ for file in files:
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))-1
     pos = 0
     k = 0
-    categories = {x:False for x in ['still', 'moving', 'fast moving', 'WARNING', 'many stars', 'storms', 'raining', 'lightning', 'night', 'day', 'realtime', 'timelapse', 'water']}
+    cats = ['still', 'moving', 'fast moving', 'WARNING', 'many stars', 'storms', 'raining', 'lightning', 'night', 'day', 'realtime', 'timelapse', 'water']
+    categories = {x:False for x in cats}
+    btnImg = np.full((20*((len(categories)+2)//3),400,3), 255, dtype=np.uint8)
     def display():
         global img, box
         # if not img is None:
@@ -89,19 +91,35 @@ for file in files:
             k = 0 if q == ord('k') else q
 
     def clearCategories():
-        global categories
-        for c in categories:
-            cv2.setTrackbarPos(c, 'control', 0)
-
+        global categories, btnImg, cats
+        categories = {x:False for x in cats}
+        for i,c in enumerate(cats):
+            cv2.rectangle(btnImg, (btnImg.shape[1]//3*(i%3)+1,i//3*20+1), (btnImg.shape[1]//3*(i%3)+5, (i//3+1)*20-1), (0,0,255), -1)
+        cv2.imshow('control', btnImg)
     cv2.namedWindow(file[1], cv2.WINDOW_NORMAL)
     cv2.namedWindow('control', cv2.WINDOW_NORMAL)
     cv2.createTrackbar('Position','control', 0, length, onChange)
-    for c in categories:
-        def update(t):
-            global categories
-            categories[c] = True if t != 0 else False
-        cv2.createTrackbar(c, 'control', 0, 1, update)
+    cv2.line(btnImg, (0,0),(0,btnImg.shape[0]), (0,0,0), 1)
+    cv2.line(btnImg, (btnImg.shape[1]//3,0),(btnImg.shape[1]//3,btnImg.shape[0]), (0,0,0), 1)
+    cv2.line(btnImg, (btnImg.shape[1]//3*2,0),(btnImg.shape[1]//3*2,btnImg.shape[0]), (0,0,0), 1)
+    cv2.line(btnImg, (btnImg.shape[1]//3*2,0),(btnImg.shape[1]//3*2,btnImg.shape[0]), (0,0,0), 1)
+    for i,c in enumerate(cats):
+        cv2.putText(btnImg, c, (btnImg.shape[1]//3*(i%3)+30, 20*(i//3)+13), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,0), 1, cv2.LINE_AA)
+        cv2.line(btnImg, (0,i*20), (btnImg.shape[1],i*20), (0,0,0), 1)
+        cv2.rectangle(btnImg, (btnImg.shape[1]//3*(i%3)+1,i//3*20+1), (btnImg.shape[1]//3*(i%3)+5, (i//3+1)*20-1), (0,0,255), -1)
+    def buttons(event, x, y, flags, param):
+        global categories
+        if event == cv2.EVENT_LBUTTONDOWN:
+            x = x//(btnImg.shape[1]//3)
+            y = y//20
+            if x+y*3 < len(cats):
+                categories[cats[x+y*3]] = not categories[cats[x+y*3]]
+                col = (0,255,0) if categories[cats[x+y*3]] else (0,0,255)
+                cv2.floodFill(btnImg, None, seedPoint=(5+x*(btnImg.shape[1]//3), 5+y*20), newVal=col, loDiff=(30,30,30,30),upDiff=(30,30,30,30))
+                cv2.imshow('control', btnImg)
+    cv2.imshow('control', btnImg)
     cv2.setMouseCallback(file[1], handleMouse)
+    cv2.setMouseCallback('control', buttons)
     onChange(0)
     lastS = 0
 
@@ -118,22 +136,18 @@ for file in files:
             q = cv2.waitKey(max(int(1/30),1)) & 0xff
             if q != 255:
                 k = 0 if q == ord('k') else q
-                # cv2.setTrackbarPos('Position', 'control', pos-speed*9)
-            # print(pos)
+                cv2.setTrackbarPos('Position', 'control', int(cap.get(cv2.CAP_PROP_POS_FRAMES)))
         while not k in [27]+[ord(x) for x in 'qQjlJLk,.']:
             if k == ord('s'):
                 lastS = pos
             elif k == ord('d'):
-                if lastS != -1:
-                    betterBox = [min(box[0], box[2]),min(box[1], box[3]),max(box[0], box[2]),max(box[1], box[3])]
-                    data.append([lastS, pos, betterBox, categories])
-                    clearCategories()
-                    print('added',[lastS, pos])
-                    lastS = pos+1
-                    k = ord('l')
-                    break
-                else:
-                    print('Start not set')
+                betterBox = [min(box[0], box[2]),min(box[1], box[3]),max(box[0], box[2]),max(box[1], box[3])]
+                data.append([lastS, pos, betterBox, categories])
+                clearCategories()
+                print('added',[lastS, pos])
+                lastS = pos+1
+                k = ord('l')
+                break
             elif k == ord('r'):
                 print('removed',data.pop(-1))
                 print(data)
