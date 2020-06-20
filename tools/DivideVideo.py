@@ -102,7 +102,6 @@ for file in files:
     cv2.line(btnImg, (0,0),(0,btnImg.shape[0]), (0,0,0), 1)
     cv2.line(btnImg, (btnImg.shape[1]//3,0),(btnImg.shape[1]//3,btnImg.shape[0]), (0,0,0), 1)
     cv2.line(btnImg, (btnImg.shape[1]//3*2,0),(btnImg.shape[1]//3*2,btnImg.shape[0]), (0,0,0), 1)
-    cv2.line(btnImg, (btnImg.shape[1]//3*2,0),(btnImg.shape[1]//3*2,btnImg.shape[0]), (0,0,0), 1)
     for i,c in enumerate(cats):
         cv2.putText(btnImg, c, (btnImg.shape[1]//3*(i%3)+30, 20*(i//3)+13), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,0), 1, cv2.LINE_AA)
         cv2.line(btnImg, (0,i*20), (btnImg.shape[1],i*20), (0,0,0), 1)
