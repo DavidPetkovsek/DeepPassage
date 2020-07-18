@@ -126,8 +126,12 @@ for file in files:
         if k == ord('k'):
             for i in range(speed):
                 if cap.isOpened():
+                    oImg = np.copy(img)
                     err,img = cap.read()
-                    if err:
+                    if not err:
+                        img = np.copy(oImg)
+                        print('reached end')
+                        k = 0
                         break
                 else:
                     pos = min(max(pos-1, 0),length)
@@ -135,7 +139,7 @@ for file in files:
             q = cv2.waitKey(max(int(1/30),1)) & 0xff
             if q != 255:
                 k = 0 if q == ord('k') else q
-                cv2.setTrackbarPos('Position', 'control', int(cap.get(cv2.CAP_PROP_POS_FRAMES)))
+                cv2.setTrackbarPos('Position', 'control', int(cap.get(cv2.CAP_PROP_POS_FRAMES))-speed)
         while not k in [27]+[ord(x) for x in 'qQjlJLk,.']:
             if k == ord('s'):
                 lastS = pos
@@ -144,7 +148,7 @@ for file in files:
                 data.append([lastS, pos, betterBox, categories])
                 clearCategories()
                 print('added',[lastS, pos])
-                lastS = pos+1
+                lastS = min(pos+1, length)
                 k = ord('l')
                 break
             elif k == ord('r'):
