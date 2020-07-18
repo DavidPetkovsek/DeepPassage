@@ -82,7 +82,7 @@ for file in files:
 
     def onChange(trackbarValue):
         global pos, k, img
-        pos = trackbarValue
+        pos = min(max(trackbarValue, 0), length)
         cap.set(cv2.CAP_PROP_POS_FRAMES,min(max(pos, 0),length))
         err,img = cap.read()
         display()
