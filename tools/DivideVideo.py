@@ -69,7 +69,7 @@ for file in files:
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))-1
     pos = 0
     k = 0
-    cats = ['still', 'moving', 'fast moving', 'WARNING', 'many stars', 'storms', 'raining', 'lightning', 'night', 'day', 'realtime', 'timelapse', 'water']
+    cats = ['still cam', 'moving cam', 'fast moving cam', 'WARNING', 'stars', 'storms', 'reflection', 'lightning', 'night', 'day', 'realtime', 'timelapse', 'water', 'forest', 'cloud', 'mountain', 'nothern light', 'city']
     categories = {x:False for x in cats}
     btnImg = np.full((20*((len(categories)+2)//3),400,3), 255, dtype=np.uint8)
     def display():
