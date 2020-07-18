@@ -148,11 +148,12 @@ for file in files:
                 k = ord('l')
                 break
             elif k == ord('r'):
-                print('removed',data.pop(-1))
-                print(data)
+                cv2.setTrackbarPos('Position', 'control', data[-1][1])
+                lastS = data[-1][0]
+                print('removed',data.pop(-1)[:2])
             elif k == ord('p'):
                 print('Start Setting:',lastS)
-                print(data)
+                print([d[:2] for d in data])
             display()
             k = cv2.waitKey(10) & 0xff
 
