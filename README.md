@@ -1,7 +1,7 @@
 # DeepPassage
 
 Current requirements:
-tqdm argparse pytube3 opencv-python tensorflow==2.0
+tqdm argparse pytube3 opencv-python tensorflow==2.0 pillow
 
 There is a known problem with the latest version of pytube3, resulting in a key 'cipher' error. The following issue has a solution commit that has not been approved yet but currently resolves the issue
 
