@@ -4,7 +4,7 @@ import cv2
 import re, os
 from tqdm import tqdm
 
-parser = argparse.ArgumentParser(description='Download videos from youtube from urls in plain text file. (One url per line # for comments).')
+parser = argparse.ArgumentParser(description='Opens all videos and provides a suite to produce meta files to breakup and categorize clips of videos.')
 parser.add_argument("-m", "--meta", type=str, default="meta.txt", help="The name of the meta file. default='videos.txt'")
 parser.add_argument("-o", "--open", type=str, default="videos", help="The path to the folder to open videos to (no closing slash). default='videos'")
 parser.add_argument("-s", "--save", type=str, default="videos", help="The path to the folder to save videos and meta to (no closing slash). default='videos'")
