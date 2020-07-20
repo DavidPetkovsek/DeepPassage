@@ -6,6 +6,8 @@ from tensorflow import keras
 from tensorflow.keras import layers, models, optimizers
 from stylegan.stylegan_two import StyleGAN as StyleGAN2
 
+tfds = tf.data.Dataset
+
 # output size should be 512 for StyleGan2
 
 # https://towardsdatascience.com/transfer-learning-with-tf-2-0-ff960901046d
@@ -14,7 +16,7 @@ IMG_WIDTH = IMG_HEIGHT
 IMG_CHANNELS = 3
 BATCH_SIZE = 32
 EPOCHS = 1
-EVALUATION_INTERVAL = 200
+EPOCH_LENGTH = 200
 
 class DeepPassage(object):
     def __init__(self):
@@ -46,7 +48,7 @@ class DeepPassage(object):
         xs[6] = layers.Reshape([512])(xs[6]) # reshape to proper shape for StyleGAN2
 
         sg = StyleGAN2()
-        # sg.load(28)
+        sg.load(28)
         x = sg.GAN.G(xs)
         sg.GAN.G.trainable = False
         for i in range(len(sg.GAN.G.layers)):
@@ -57,8 +59,16 @@ class DeepPassage(object):
         self.evalModel.trainable = False
         self.losses = []
 
-    def train(self):
-        loss = self.train_step()
+    def train(self, trainingset, testset):
+        for i in range(EPOCH_LENGTH):
+            image, label = trainingset.___________()
+            loss = self.train_step(image, next_image)
+            self.losses.append(loss)
+        loss = 0
+        for i in range(testset.length.________()):
+            image, label = testset._________()
+            loss += keras.losses.MSE(self.evalModel(label), self.evalModel(self.full_model(image)))
+        return loss
 
 
     @tf.function
@@ -70,18 +80,21 @@ class DeepPassage(object):
         self.full_model.apply_gradients(zip(gradient, self.full_model.trainable_variables))
         return loss
 
+    def saveModel(self, name):
+        json = self.full_model.to_json()
+        with open("Models/"+name+".json", "w") as json_file:
+            json_file.write(json)
+
+        self.full_model.save_weights("Models/"+name+".h5")
+
 if __name__ == '__main__':
     dp = DeepPassage()
-        # print(full_model.summary())
-        # exit()
-        #
-        #
-        # evalModel = tf.keras.applications.vgg19.VGG19(input_shape=(IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS), include_top=False, weights='imagenet')
-        # evalModel.trainable = False
-        # def vgg_loss(expected, prediction):
-        #     return keras.losses.MSE(evalModel(expected), evalModel(prediction))
-        # full_model.compile(optimizer=keras.optimizers.RMSprop(clipvalue=1.0), loss=vgg_loss)
-        # model.fit(train_data_multi, epochs=EPOCHS,
-        #                           steps_per_epoch=EVALUATION_INTERVAL,
-        #                           validation_data=val_data_multi,
-        #                           validation_steps=50)
+    trainingset = ____________()
+    testset = _________________()
+
+    test_losses = []
+    for i in range(EPOCHS):
+        test_losses.append(dp.train(trainingset, testset))
+        np.save('test_losses.npy', np.array(test_losses))
+    np.save('training_losses.npy', np.array(dp.losses))
+    dp.saveModel('weights')
