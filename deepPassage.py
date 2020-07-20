@@ -58,6 +58,7 @@ class DeepPassage(object):
         self.evalModel = tf.keras.applications.vgg19.VGG19(input_shape=(IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS), include_top=False, weights='imagenet')
         self.evalModel.trainable = False
         self.losses = []
+        self.optimizer = keras.optimizers.RMSprop(clipvalue=1.0)
 
     def train(self, trainingset, testset):
         for i in range(EPOCH_LENGTH):
@@ -76,8 +77,8 @@ class DeepPassage(object):
         with tf.GradientTape() as tape:
             generated_image = self.full_model(image)
             loss = keras.losses.MSE(self.evalModel(next_image), self.evalModel(generated_image))
-        gradient = tape.gradient(loss, self.full_model.trainable_variables)
-        self.full_model.apply_gradients(zip(gradient, self.full_model.trainable_variables))
+        gradients = tape.gradient(loss, self.full_model.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.full_model.trainable_variables))
         return loss
 
     def saveModel(self, name):
