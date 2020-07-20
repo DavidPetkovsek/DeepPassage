@@ -86,7 +86,6 @@ def extract_scenes(path_to_video, meta_data, tfrecord_writer):
         }))
 
         tfrecord_writer.write(scene_example.SerializeToString())
-    f.close()
 
 
 def main():
