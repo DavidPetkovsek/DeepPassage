@@ -1,0 +1,59 @@
+import os
+import cv2
+import ast
+
+MANUAL_ERROR = 1
+FRAME_START = 0
+FRAME_END = 1
+FRAME_CATEGORIES = 3 
+UNWANTED_CATEGORIES = ['WARNING']
+
+scenes = []
+
+def get_abs_path(rel_path):
+  script_dir = os.path.abspath(__file__) #<-- absolute dir the script is in
+  abs_file_path = os.path.join(script_dir, rel_path)
+  return abs_file_path
+
+def save_frames(path_to_video, meta_data):
+  video_capture = cv2.VideoCapture(path_to_video)
+  success, frame = video_capture.read()
+  count = 0
+  scene_count = 1 
+  scene_frames = []
+  while success:
+    count += 1
+    success, frame = video_capture.read()
+    scene_start_frame = meta_data[scene_count][FRAME_START]
+    scene_end_frame = meta_data[scene_count][FRAME_END]
+    if count <= scene_start_frame: continue
+    if count >= scene_end_frame - MANUAL_ERROR:
+      if len(scene_frames) > 0:
+        scenes.append((scene_frames, meta_data[scene_count]))
+      scene_frames = []
+      scene_count += 1
+      if scene_count >= len(meta_data): break
+      continue
+    contains_unwanted_category = False
+    for category in UNWANTED_CATEGORIES:
+      if meta_data[scene_count][FRAME_CATEGORIES][category]:
+        contains_unwanted_category = True
+        break
+    if contains_unwanted_category: continue
+    scene_frames.append(frame)
+    # cv2.imwrite("frame%d.jpg" % count, frame)     # save frame as JPEG file      
+    # print('Read a new frame: ', success, count, scene_count)
+
+def main_program():
+  f = open("meta.txt", "r")
+  while True:
+    video_file_name = f.readline()
+    if not video_file_name: break
+    meta_data = ast.literal_eval(f.readline().strip())
+    if not meta_data: break
+    abs_path = get_abs_path(video_file_name)
+    save_frames(video_file_name.strip(), meta_data)
+    print(len(scenes))
+
+if __name__ == "__main__":
+    main_program()
