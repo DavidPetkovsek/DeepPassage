@@ -65,7 +65,10 @@ files = getListOfFiles(args.open, r"\.mp4$")
 speed = 2
 img = None
 for file in files:
+    print(file[0])
     cap = cv2.VideoCapture(file[0])
+    if not cap.isOpened():
+        print(f"Unable to open {file[0]}", file=sys.stderr)
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))-1
     pos = 0
     k = 0

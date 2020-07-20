@@ -1,59 +1,95 @@
 import os
 import cv2
 import ast
+import sys
+import argparse
+from pathlib import Path
 
 MANUAL_ERROR = 1
 FRAME_START = 0
 FRAME_END = 1
 FRAME_CATEGORIES = 3
+IMG_SIZE = 256
 UNWANTED_CATEGORIES = ['WARNING']
 
-scenes = []
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--dir", type=str, default="videos", help="The path to the folder containing videos")
+parser.add_argument("-o", "--output", type=str, default="scenes", help="The path to the folder where the scenes will be saved")
+parser.add_argument("-m", "--meta", type=str, default="meta.txt", help="The path to the meta file")
+args = parser.parse_args()
 
-def get_abs_path(rel_path):
-    script_dir = os.path.abspath(__file__) #<-- absolute dir the script is in
-    abs_file_path = os.path.join(script_dir, rel_path)
-    return abs_file_path
+scene_count = 0
 
-def save_frames(path_to_video, meta_data):
+def extract_scenes(path_to_video, meta_data):
+    def crop_square_center(width, height):
+        dim = min(width, height)
+        if dim == width:
+            return (0, dim, (height - width) // 2, (height - width) // 2 + dim)
+        else:
+            return ((width - height) // 2, (width - height) // 2 + dim, 0, dim)
+
+    global scene_count
+
     video_capture = cv2.VideoCapture(path_to_video)
-    success, frame = video_capture.read()
-    count = 0
-    scene_count = 1
-    scene_frames = []
-    while success:
-        count += 1
-        success, frame = video_capture.read()
-        scene_start_frame = meta_data[scene_count][FRAME_START]
-        scene_end_frame = meta_data[scene_count][FRAME_END]
-        if count <= scene_start_frame: continue
-        if count >= scene_end_frame - MANUAL_ERROR:
-            if len(scene_frames) > 0:
-                scenes.append((scene_frames, meta_data[scene_count]))
-            scene_frames = []
-            scene_count += 1
-            if scene_count >= len(meta_data): break
-            continue
-        contains_unwanted_category = False
-        for category in UNWANTED_CATEGORIES:
-            if meta_data[scene_count][FRAME_CATEGORIES][category]:
-                contains_unwanted_category = True
-                break
-        if contains_unwanted_category: continue
-        scene_frames.append(frame)
-        # cv2.imwrite("frame%d.jpg" % count, frame)     # save frame as JPEG file
-        # print('Read a new frame: ', success, count, scene_count)
+    if not video_capture.isOpened():
+        print(f"Unable to open {path_to_video}", file=sys.stderr)
+        return
 
-def main_program():
-    f = open("meta.txt", "r")
+    ret, frame = video_capture.read()
+    if not ret:
+        raise Exception(f"Unable to fetch frame 0 of {path_to_video}")
+    
+    crop_box = crop_square_center(frame.shape[1], frame.shape[0])
+
+    total_frames = video_capture.get(cv2.CAP_PROP_FRAME_COUNT)
+
+    for scene_meta_data in meta_data:
+        # Skip if contains unwated category
+        skip = False
+        for unwanted_category in UNWANTED_CATEGORIES:
+            if  unwanted_category in meta_data[FRAME_CATEGORIES] and meta_data[FRAME_CATEGORIES][unwated_category]:
+                skip = True
+                break
+        if skip:
+            continue
+        
+        start_frame = scene_meta_data[FRAME_START]
+        end_frame = scene_meta_data[FRAME_END]
+
+        # Skip if the frames are invalid
+        if start_frame > end_frame or \
+            start_frame < 0 or \
+            start_frame >= total_frames or \
+            end_frame < 0 or \
+            end_frame >= total_frames:
+            continue
+
+        video_capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+
+        os.mkdir(os.path.join(args.output, f"scene-{scene_count}"))
+        for i in range(end_frame - start_frame - 1):
+            ret, frame = video_capture.read()
+            if not ret:
+                raise Exception(f"Unable to fetch frame {start_frame + i} of {path_to_video}")
+            frame = frame[crop_box[2]:crop_box[3], crop_box[0]:crop_box[1]]
+            frame = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
+            cv2.imwrite(os.path.join(args.output, f"scene-{scene_count}", f"frame-{i}.jpg"), frame)
+
+        scene_count += 1
+
+
+def main():
+    f = open(args.meta, "r")
     while True:
-        video_file_name = f.readline()
-        if not video_file_name: break
+        video_file_name = f.readline().strip()
+        if not video_file_name:
+            break
         meta_data = ast.literal_eval(f.readline().strip())
-        if not meta_data: break
-        abs_path = get_abs_path(video_file_name)
-        save_frames(video_file_name.strip(), meta_data)
-        print(len(scenes))
+        if not meta_data:
+            break
+        extract_scenes(os.path.join(args.dir, video_file_name), meta_data)
+    f.close()
+
 
 if __name__ == "__main__":
-    main_program()
+    main()
