@@ -65,7 +65,7 @@ class DeepPassage(object):
     def train_step(self, image, next_image):
         with tf.GradientTape() as tape:
             generated_image = self.full_model(image)
-            loss = keras.losses.MSE(evalModel(next_image), evalModel(generated_image))
+            loss = keras.losses.MSE(self.evalModel(next_image), self.evalModel(generated_image))
         gradient = tape.gradient(loss, self.full_model.trainable_variables)
         self.full_model.apply_gradients(zip(gradient, self.full_model.trainable_variables))
         return loss
