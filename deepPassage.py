@@ -93,6 +93,8 @@ def generate_example():
     while True:
         yield tf.random.uniform((256,256,3))
         i +=1
+        if i >= 100:
+            break
 
 if __name__ == '__main__':
     dp = DeepPassage()
