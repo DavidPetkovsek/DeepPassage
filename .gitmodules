@@ -1,3 +1,0 @@
-[submodule "stylegan"]
-	path = stylegan
-	url = git@github.com:manicman1999/StyleGAN2-Tensorflow-2.0.git
