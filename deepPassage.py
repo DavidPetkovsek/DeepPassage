@@ -88,10 +88,16 @@ class DeepPassage(object):
 
         self.full_model.save_weights("Models/"+name+".h5")
 
+def generate_example():
+    i = 0
+    while True:
+        yield tf.random.uniform((256,256,3))
+        i +=1
+
 if __name__ == '__main__':
     dp = DeepPassage()
-    trainingset = ____________()
-    testset = _________________()
+    trainingset =  tf.data.Dataset.from_generator(generate_example, tf.float32)()
+    testset =  tf.data.Dataset.from_generator(generate_example, tf.float32)()
 
     test_losses = []
     for i in range(EPOCHS):
