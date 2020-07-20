@@ -80,9 +80,9 @@ def extract_scenes(path_to_video, meta_data, tfrecord_writer):
             cv2.imwrite(os.path.join(args.output, f"scene-{scene_count}", f"frame-{i}.jpg"), frame)
 
         scene_count += 1
-        pixel_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[elem.encode("utf-8") for elem in os.path.join(args.output, f"scene-{scene_count}", f"frame-{i}.jpg")]))
+        scene_path_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[elem.encode("utf-8") for elem in os.path.join(args.output, f"scene-{scene_count}")]))
         scene_example = tf.train.Example(features=tf.train.Features(feature={
-            'ImageFile': pixel_feature
+            'ScenePath': scene_path_feature
         }))
 
         tfrecord_writer.write(scene_example.SerializeToString())

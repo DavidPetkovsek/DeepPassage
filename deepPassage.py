@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, models, optimizers
 from stylegan.stylegan_two import StyleGAN as StyleGAN2
+import os
 import cv2
 
 tfds = tf.data.Dataset
@@ -62,10 +63,10 @@ class DeepPassage(object):
         self.optimizer = keras.optimizers.RMSprop(clipvalue=1.0)
 
     def train(self, trainingset, testset):
-        for i in range(EPOCH_LENGTH):
-            image, label = trainingset.___________()
-            loss = self.train_step(image, next_image)
-            self.losses.append(loss)
+        for scene in trainingset.as_numpy_iterator():
+            for frame in scene:
+                loss = self.train_step(frame, next_image)
+                self.losses.append(loss)
         loss = 0
         for i in range(testset.length.________()):
             image, label = testset._________()
@@ -99,12 +100,19 @@ def generate_example():
 
 def parse_example(example):
     features = {
-        'ImageFile': tf.VarLenFeature(dtype=tf.string),
+        'ScenePath': tf.VarLenFeature(dtype=tf.string),
     }
     parsed_features = tf.parse_single_example(example, features=features)
-    image_file = parsed_features['ImageFile']
-    image = cv2.imread(image_file)
-    return image
+    scene_path = parsed_features['ScenePath']
+    frames = []
+    frame_id = 0
+    while True:
+        if not os.path.isfile(os.path.join(scene_path), f"frame-{frame_id}.jpg"):
+            break
+        image = cv2.imread(os.path.join(scene_path), f"frame-{frame_id}.jpg")
+        frames.append(image)
+
+    return frames
 
 
 if __name__ == '__main__':
@@ -121,6 +129,7 @@ if __name__ == '__main__':
     testset =  temp_dataset.filter(lambda i, data: i % 10 >= 9)
     del temp_dataset
     trainingset = trainingset.map(lambda i, data: data)
+    trainingset = trainingset.shuffle(reshuffle_each_iteration=True)
     testset = testset.map(lambda i, data: data)
 
     test_losses = []
