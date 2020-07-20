@@ -4,6 +4,9 @@ import ast
 import sys
 import argparse
 from pathlib import Path
+from tqdm import tqdm
+import tensorflow as tf
+import numpy as np
 
 MANUAL_ERROR = 1
 FRAME_START = 0
@@ -14,13 +17,13 @@ UNWANTED_CATEGORIES = ['WARNING']
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--dir", type=str, default="videos", help="The path to the folder containing videos")
-parser.add_argument("-o", "--output", type=str, default="scenes", help="The path to the folder where the scenes will be saved")
+parser.add_argument("-o", "--output", type=str, default="data/scenes.tfrecord", help="Where the data will be saved")
 parser.add_argument("-m", "--meta", type=str, default="meta.txt", help="The path to the meta file")
 args = parser.parse_args()
 
 scene_count = 0
 
-def extract_scenes(path_to_video, meta_data):
+def extract_scenes(path_to_video, meta_data, tfrecord_writer):
     def crop_square_center(width, height):
         dim = min(width, height)
         if dim == width:
@@ -43,7 +46,8 @@ def extract_scenes(path_to_video, meta_data):
 
     total_frames = video_capture.get(cv2.CAP_PROP_FRAME_COUNT)
 
-    for scene_meta_data in meta_data:
+    print(f"Spitting {path_to_video}")
+    for scene_meta_data in tqdm(meta_data):
         # Skip if contains unwated category
         skip = False
         for unwanted_category in UNWANTED_CATEGORIES:
@@ -66,20 +70,33 @@ def extract_scenes(path_to_video, meta_data):
 
         video_capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
-        os.mkdir(os.path.join(args.output, f"scene-{scene_count}"))
+        scene_array = None
         for i in range(end_frame - start_frame - 1):
             ret, frame = video_capture.read()
             if not ret:
                 raise Exception(f"Unable to fetch frame {start_frame + i} of {path_to_video}")
             frame = frame[crop_box[2]:crop_box[3], crop_box[0]:crop_box[1]]
             frame = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
-            cv2.imwrite(os.path.join(args.output, f"scene-{scene_count}", f"frame-{i}.jpg"), frame)
+            if scene_array is None:
+                scene_array = np.array(frame)[..., np.newaxis]
+            else:
+                scene_array = np.append(scene_array, frame[..., np.newaxis], axis=3)
 
         scene_count += 1
+        shape_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=scene_array.shape))
+        pixel_feature = tf.train.Feature(float_list=tf.train.FloatList(value=scene_array.reshape(-1)))
+        scene_example = tf.train.Example(features=tf.train.Features(feature={
+            'Shape': shape_feature,
+            'Pixel': pixel_feature
+        }))
+
+        tfrecord_writer.write(scene_example.SerializeToString())
+    f.close()
 
 
 def main():
     f = open(args.meta, "r")
+    tfrecord_writer = tf.io.TFRecordWriter(args.output)
     while True:
         video_file_name = f.readline().strip()
         if not video_file_name:
@@ -87,7 +104,8 @@ def main():
         meta_data = ast.literal_eval(f.readline().strip())
         if not meta_data:
             break
-        extract_scenes(os.path.join(args.dir, video_file_name), meta_data)
+        extract_scenes(os.path.join(args.dir, video_file_name), meta_data, tfrecord_writer)
+    tfrecord_writer.close()
     f.close()
 
 
