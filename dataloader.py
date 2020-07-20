@@ -17,7 +17,7 @@ UNWANTED_CATEGORIES = ['WARNING']
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--dir", type=str, default="videos", help="The path to the folder containing videos")
-parser.add_argument("-o", "--output", type=str, default="data/scenes.tfrecord", help="Where the data will be saved")
+parser.add_argument("-o", "--output", type=str, default="data", help="Where the data will be saved")
 parser.add_argument("-m", "--meta", type=str, default="meta.txt", help="The path to the meta file")
 args = parser.parse_args()
 
@@ -70,24 +70,19 @@ def extract_scenes(path_to_video, meta_data, tfrecord_writer):
 
         video_capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
-        scene_array = None
+        os.mkdir(os.path.join(args.output, f"scene-{scene_count}"))
         for i in range(end_frame - start_frame - 1):
             ret, frame = video_capture.read()
             if not ret:
                 raise Exception(f"Unable to fetch frame {start_frame + i} of {path_to_video}")
             frame = frame[crop_box[2]:crop_box[3], crop_box[0]:crop_box[1]]
             frame = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
-            if scene_array is None:
-                scene_array = np.array(frame)[..., np.newaxis]
-            else:
-                scene_array = np.append(scene_array, frame[..., np.newaxis], axis=3)
+            cv2.imwrite(os.path.join(args.output, f"scene-{scene_count}", f"frame-{i}.jpg"), frame)
 
         scene_count += 1
-        shape_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=scene_array.shape))
-        pixel_feature = tf.train.Feature(float_list=tf.train.FloatList(value=scene_array.reshape(-1)))
+        pixel_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[elem.encode("utf-8") for elem in os.path.join(args.output, f"scene-{scene_count}", f"frame-{i}.jpg")]))
         scene_example = tf.train.Example(features=tf.train.Features(feature={
-            'Shape': shape_feature,
-            'Pixel': pixel_feature
+            'ImageFile': pixel_feature
         }))
 
         tfrecord_writer.write(scene_example.SerializeToString())
@@ -96,7 +91,7 @@ def extract_scenes(path_to_video, meta_data, tfrecord_writer):
 
 def main():
     f = open(args.meta, "r")
-    tfrecord_writer = tf.io.TFRecordWriter(args.output)
+    tfrecord_writer = tf.io.TFRecordWriter(os.path.join(args.output, "scenes.tfrecord"))
     while True:
         video_file_name = f.readline().strip()
         if not video_file_name:

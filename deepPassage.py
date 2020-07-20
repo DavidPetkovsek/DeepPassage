@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, models, optimizers
 from stylegan.stylegan_two import StyleGAN as StyleGAN2
+import cv2
 
 tfds = tf.data.Dataset
 
@@ -96,10 +97,31 @@ def generate_example():
         if i >= 100:
             break
 
+def parse_example(example):
+    features = {
+        'ImageFile': tf.VarLenFeature(dtype=tf.string),
+    }
+    parsed_features = tf.parse_single_example(example, features=features)
+    image_file = parsed_features['ImageFile']
+    image = cv2.imread(image_file)
+    return image
+
+
 if __name__ == '__main__':
     dp = DeepPassage()
-    trainingset =  tf.data.Dataset.from_generator(generate_example, tf.float32)
-    testset =  tf.data.Dataset.from_generator(generate_example, tf.float32)
+
+    dataset = tf.data.TFRecordDataset(['./scenes/scenes.tfrecord'])
+    dataset = dataset.map(parse_example)
+    dataset = dataset.shuffle()
+    dataset = dataset.cache()
+
+    # Split 90-10
+    temp_dataset = dataset.enumerate()
+    trainingset =  temp_dataset.filter(lambda i, data: i % 10 < 9)
+    testset =  temp_dataset.filter(lambda i, data: i % 10 >= 9)
+    del temp_dataset
+    trainingset = trainingset.map(lambda i, data: data)
+    testset = testset.map(lambda i, data: data)
 
     test_losses = []
     for i in range(EPOCHS):
