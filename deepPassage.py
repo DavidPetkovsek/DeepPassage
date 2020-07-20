@@ -96,8 +96,8 @@ def generate_example():
 
 if __name__ == '__main__':
     dp = DeepPassage()
-    trainingset =  tf.data.Dataset.from_generator(generate_example, tf.float32)()
-    testset =  tf.data.Dataset.from_generator(generate_example, tf.float32)()
+    trainingset =  tf.data.Dataset.from_generator(generate_example, tf.float32)
+    testset =  tf.data.Dataset.from_generator(generate_example, tf.float32)
 
     test_losses = []
     for i in range(EPOCHS):
