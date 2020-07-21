@@ -7,6 +7,9 @@ from tensorflow.keras import layers, models, optimizers
 from stylegan.stylegan_two import StyleGAN as StyleGAN2
 import os
 import cv2
+import random
+from tqdm import tqdm
+import numpy as np
 
 tfds = tf.data.Dataset
 
@@ -17,7 +20,9 @@ IMG_HEIGHT = 256
 IMG_WIDTH = IMG_HEIGHT
 IMG_CHANNELS = 3
 BATCH_SIZE = 32
-EPOCHS = 1
+EPOCHS = 5
+FRAME_PER_CLIP = 50
+TEST_SAMPLE = 200
 EPOCH_LENGTH = 200
 
 class DeepPassage(object):
@@ -50,7 +55,7 @@ class DeepPassage(object):
         xs[6] = layers.Reshape([512])(xs[6]) # reshape to proper shape for StyleGAN2
 
         sg = StyleGAN2()
-        sg.load(28)
+        sg.load(0)
         x = sg.GAN.G(xs)
         sg.GAN.G.trainable = False
         for i in range(len(sg.GAN.G.layers)):
@@ -63,14 +68,15 @@ class DeepPassage(object):
         self.optimizer = keras.optimizers.RMSprop(clipvalue=1.0)
 
     def train(self, trainingset, testset):
-        for scene in trainingset.as_numpy_iterator():
-            for frame in scene:
-                loss = self.train_step(frame, next_image)
-                self.losses.append(loss)
+        for samples in tqdm(trainingset, total=1500):
+            frames, next_frames = tf.split(samples, 2, axis=1)
+            frames = tf.squeeze(frames, axis=1)
+            next_frames = tf.squeeze(next_frames, axis=1)
+            loss = self.train_step(frames, next_frames)
+            self.losses.append(loss)
         loss = 0
-        for i in range(testset.length.________()):
-            image, label = testset._________()
-            loss += keras.losses.MSE(self.evalModel(label), self.evalModel(self.full_model(image)))
+        for image in testset:
+            loss += keras.losses.MSE(self.evalModel(image), self.evalModel(self.full_model(image)))
         return loss
 
 
@@ -79,8 +85,8 @@ class DeepPassage(object):
         with tf.GradientTape() as tape:
             generated_image = self.full_model(image)
             loss = keras.losses.MSE(self.evalModel(next_image), self.evalModel(generated_image))
-        gradients = tape.gradient(loss, self.full_model.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.full_model.trainable_variables))
+            gradients = tape.gradient(loss, self.full_model.trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.full_model.trainable_variables))
         return loss
 
     def saveModel(self, name):
@@ -100,40 +106,66 @@ def generate_example():
 
 def parse_example(example):
     features = {
-        'ScenePath': tf.VarLenFeature(dtype=tf.string),
+        'ScenePath': tf.io.VarLenFeature(dtype=tf.string),
     }
-    parsed_features = tf.parse_single_example(example, features=features)
+    parsed_features = tf.io.parse_single_example(example, features=features)
     scene_path = parsed_features['ScenePath']
     frames = []
     frame_id = 0
-    while True:
-        if not os.path.isfile(os.path.join(scene_path), f"frame-{frame_id}.jpg"):
-            break
-        image = cv2.imread(os.path.join(scene_path), f"frame-{frame_id}.jpg")
-        frames.append(image)
 
+    frame = tf.io.decode_jpeg()
+    frames.append(image)
+
+    return frames
+
+def generate_scene_path(n):
+    def generator():
+        i = 0
+        while i < n:
+            if i in [338]:
+                i += 1
+                continue
+            yield f"./scenes/scene-{i}"
+            i += 1
+    return generator
+
+
+def parse_scene_example(scene_path):
+    file_names = tf.data.Dataset.list_files(tf.strings.join([scene_path, tf.constant("/*.jpg", dtype=tf.string)]), shuffle=False)
+    files_content = file_names.map(tf.io.read_file)
+    frames = files_content.map(tf.io.decode_jpeg)
+    frames = frames.map(lambda x: tf.image.convert_image_dtype(x, tf.float32))
     return frames
 
 
 if __name__ == '__main__':
     dp = DeepPassage()
 
-    dataset = tf.data.TFRecordDataset(['./scenes/scenes.tfrecord'])
-    dataset = dataset.map(parse_example)
-    dataset = dataset.shuffle()
-    dataset = dataset.cache()
+    # with tf.Session() as sess:
+    #     dataset = tf.data.TFRecordDataset(['./scenes/scenes.tfrecord'])
+    # dataset = dataset.map(parse_example)
+    dataset = tf.data.Dataset.from_generator(generate_scene_path(906), (tf.string))
+    dataset = dataset.map(parse_scene_example)
 
     # Split 90-10
     temp_dataset = dataset.enumerate()
     trainingset =  temp_dataset.filter(lambda i, data: i % 10 < 9)
     testset =  temp_dataset.filter(lambda i, data: i % 10 >= 9)
+
     del temp_dataset
     trainingset = trainingset.map(lambda i, data: data)
-    trainingset = trainingset.shuffle(reshuffle_each_iteration=True)
+    trainingset = trainingset.shuffle(8192, reshuffle_each_iteration=True)
+    trainingset = trainingset.map(lambda x: x.batch(2, drop_remainder=True))
+    trainingset = trainingset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
+    trainingset = trainingset.batch(BATCH_SIZE, drop_remainder=True)
+
     testset = testset.map(lambda i, data: data)
+    testset = testset.shuffle(8192, reshuffle_each_iteration=True)
+    testset = testset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
+    testset = testset.batch(BATCH_SIZE, drop_remainder=True)
 
     test_losses = []
-    for i in range(EPOCHS):
+    for i in tqdm(range(EPOCHS), unit='epochs'):
         test_losses.append(dp.train(trainingset, testset))
         np.save('test_losses.npy', np.array(test_losses))
     np.save('training_losses.npy', np.array(dp.losses))
