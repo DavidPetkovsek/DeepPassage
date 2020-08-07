@@ -153,13 +153,14 @@ def prepare_sample_images(original_images, prediction_images):
 
 
 def save_sample_image(model, testset, epoch_number):
-    originals = testset.shuffle(32).take(1)
+    originals = next(iter(testset.shuffle(32)))
     predictions = model.full_model(originals)
 
-    original_images = tf.dtypes.saturate_cast(originals, tf.uint8)
-    prediction_images = tf.dtypes.saturate_cast(predictions. tf.uint8)
+    original_images = tf.saturate_cast(originals, tf.uint8)
+    prediction_images = tf.saturate_cast(predictions. tf.uint8)
 
     images = prepare_sample_images(original_images, prediction_images)
+    images = tf.image.encode_jpeg(images)
     tf.io.write_file(f"Results/{epoch_number}.jpg", images)
 
 
@@ -179,12 +180,14 @@ if __name__ == '__main__':
     trainingset = trainingset.map(lambda x: x.batch(2, drop_remainder=True))
     trainingset = trainingset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
     trainingset = trainingset.batch(BATCH_SIZE, drop_remainder=True)
+    trainingset = trainingset.take(4)
     trainingset = trainingset.shuffle(8192, reshuffle_each_iteration=True)
 
     testset = testset.map(lambda i, data: data)
     testset = testset.shuffle(8192)
     testset = testset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
     testset = testset.batch(BATCH_SIZE, drop_remainder=True)
+    testset = testset.take(4)
 
     test_losses = []
     for i in tqdm(range(EPOCHS), unit='epochs'):
