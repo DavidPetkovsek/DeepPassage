@@ -10,6 +10,7 @@ import cv2
 import random
 from tqdm import tqdm
 import numpy as np
+import shutil
 
 tfds = tf.data.Dataset
 
@@ -20,7 +21,7 @@ IMG_HEIGHT = 256
 IMG_WIDTH = IMG_HEIGHT
 IMG_CHANNELS = 3
 BATCH_SIZE = 32
-EPOCHS = 5
+EPOCHS = 1000
 FRAME_PER_CLIP = 50
 TEST_SAMPLE = 200
 EPOCH_LENGTH = 200
@@ -79,7 +80,6 @@ class DeepPassage(object):
             loss += keras.losses.MSE(self.evalModel(image), self.evalModel(self.full_model(image)))
         return loss
 
-
     @tf.function
     def train_step(self, image, next_image):
         with tf.GradientTape() as tape:
@@ -90,6 +90,10 @@ class DeepPassage(object):
         return loss
 
     def saveModel(self, name):
+        if os.path.exists(os.path.join(f"Models/{name}.json")):
+            shutil.copy(f"Models/{name}.json", f"Models/{name}.json.bak")
+        if os.path.exists(os.path.join(f"Models/{name}.h5")):
+            shutil.copy(f"Models/{name}.h5", f"Models/{name}.h5.bak")
         json = self.full_model.to_json()
         with open("Models/"+name+".json", "w") as json_file:
             json_file.write(json)
@@ -137,13 +141,31 @@ def parse_scene_example(scene_path):
     frames = frames.map(lambda x: tf.image.convert_image_dtype(x, tf.float32))
     return frames
 
+def prepare_sample_images(original_images, prediction_images):
+    images = np.zeros((IMG_HEIGHT * 8, IMG_WIDTH * 8, 3), dtypes=np.uint8)
+
+    for row in range(8):
+        for col in range(4):
+            images[row*IMG_HEIGHT:(row+1)*IMG_HEIGHT, col*IMG_WIDTH:(col+1)*IMG_WIDTH] = original_images[row*4 + col]
+            images[row*IMG_HEIGHT:(row+1)*IMG_HEIGHT, (col+1)*IMG_WIDTH:(col+2)*IMG_WIDTH] = prediction_images[row*4 + col]
+
+    return images
+
+
+def save_sample_image(model, testset, epoch_number):
+    originals = testset.shuffle(32).take(1)
+    predictions = model.full_model(originals)
+
+    original_images = tf.dtypes.saturate_cast(originals, tf.uint8)
+    prediction_images = tf.dtypes.saturate_cast(predictions. tf.uint8)
+
+    images = prepare_sample_images(original_images, prediction_images)
+    tf.io.write_file(f"Results/{epoch_number}.jpg", images)
+
 
 if __name__ == '__main__':
     dp = DeepPassage()
 
-    # with tf.Session() as sess:
-    #     dataset = tf.data.TFRecordDataset(['./scenes/scenes.tfrecord'])
-    # dataset = dataset.map(parse_example)
     dataset = tf.data.Dataset.from_generator(generate_scene_path(906), (tf.string))
     dataset = dataset.map(parse_scene_example)
 
@@ -154,13 +176,13 @@ if __name__ == '__main__':
 
     del temp_dataset
     trainingset = trainingset.map(lambda i, data: data)
-    trainingset = trainingset.shuffle(8192, reshuffle_each_iteration=True)
     trainingset = trainingset.map(lambda x: x.batch(2, drop_remainder=True))
     trainingset = trainingset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
     trainingset = trainingset.batch(BATCH_SIZE, drop_remainder=True)
+    trainingset = trainingset.shuffle(8192, reshuffle_each_iteration=True)
 
     testset = testset.map(lambda i, data: data)
-    testset = testset.shuffle(8192, reshuffle_each_iteration=True)
+    testset = testset.shuffle(8192)
     testset = testset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
     testset = testset.batch(BATCH_SIZE, drop_remainder=True)
 
@@ -168,5 +190,6 @@ if __name__ == '__main__':
     for i in tqdm(range(EPOCHS), unit='epochs'):
         test_losses.append(dp.train(trainingset, testset))
         np.save('test_losses.npy', np.array(test_losses))
-    np.save('training_losses.npy', np.array(dp.losses))
-    dp.saveModel('weights')
+        np.save('training_losses.npy', np.array(dp.losses))
+        dp.saveModel('weights')
+        save_sample_image(dp, testset, i)
