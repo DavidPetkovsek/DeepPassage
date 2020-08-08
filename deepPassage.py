@@ -76,8 +76,11 @@ class DeepPassage(object):
             loss = self.train_step(frames, next_frames)
             self.losses.append(loss)
         loss = 0
-        for image in testset:
-            loss += keras.losses.MSE(self.evalModel(image), self.evalModel(self.full_model(image)))
+        for samples in testset:
+            frames, next_frames = tf.split(samples, 2, axis=1)
+            frames = tf.squeeze(frames, axis=1)
+            next_frames = tf.squeeze(next_frames, axis=1)
+            loss += keras.losses.MSE(self.evalModel(next_frames), self.evalModel(self.full_model(frames)))
         return loss
 
     @tf.function
@@ -157,12 +160,16 @@ def prepare_sample_images(original_images, prediction_images):
 
 def save_sample_image(model, testset, epoch_number):
     originals = next(iter(testset))
-    predictions = model.full_model(originals)
+
+    original_frames, _ = tf.split(originals, 2, axis=1)
+    original_frames = tf.squeeze(original_frames, axis=1)
+
+    predictions = model.full_model(original_frames)
 
     # print(predictions[0])
     # tf.io.write_file(f"Results/test.jpg", tf.io.encode_jpeg(tf.saturate_cast(predictions[0], tf.uint8)))
 
-    original_images = tf.image.convert_image_dtype(originals, tf.uint8, saturate=True)
+    original_images = tf.image.convert_image_dtype(original_frames, tf.uint8, saturate=True)
     prediction_images = tf.image.convert_image_dtype(predictions, tf.uint8, saturate=True)
 
     images = prepare_sample_images(original_images, prediction_images)
@@ -189,8 +196,8 @@ if __name__ == '__main__':
     trainingset = trainingset.shuffle(8192, reshuffle_each_iteration=True)
 
     testset = testset.map(lambda i, data: data)
+    testset = testset.map(lambda x: x.batch(2, drop_remainder=True))
     testset = testset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
-    testset = testset.shuffle(1024)
     testset = testset.batch(BATCH_SIZE, drop_remainder=True)
     testset = testset.take(4)
 
@@ -200,4 +207,4 @@ if __name__ == '__main__':
         np.save('test_losses.npy', np.array(test_losses))
         np.save('training_losses.npy', np.array(dp.losses))
         dp.saveModel('weights')
-        save_sample_image(dp, testset, i)
+        save_sample_image(dp, testset.shuffle(1024), i)
