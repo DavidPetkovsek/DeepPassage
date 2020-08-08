@@ -142,26 +142,31 @@ def parse_scene_example(scene_path):
     return frames
 
 def prepare_sample_images(original_images, prediction_images):
-    images = np.zeros((IMG_HEIGHT * 8, IMG_WIDTH * 8, 3), dtypes=np.uint8)
+    images = np.full((IMG_HEIGHT * 8, IMG_WIDTH * 8, 3), 255, dtype=np.uint8)
+
+    original_images = original_images.numpy()
+    prediction_images = prediction_images.numpy()
 
     for row in range(8):
         for col in range(4):
-            images[row*IMG_HEIGHT:(row+1)*IMG_HEIGHT, col*IMG_WIDTH:(col+1)*IMG_WIDTH] = original_images[row*4 + col]
-            images[row*IMG_HEIGHT:(row+1)*IMG_HEIGHT, (col+1)*IMG_WIDTH:(col+2)*IMG_WIDTH] = prediction_images[row*4 + col]
+            images[row*IMG_HEIGHT:(row+1)*IMG_HEIGHT, 2*col*IMG_WIDTH:(2*col+1)*IMG_WIDTH] = original_images[row*4 + col]
+            images[row*IMG_HEIGHT:(row+1)*IMG_HEIGHT, (2*col+1)*IMG_WIDTH:(2*col+2)*IMG_WIDTH] = prediction_images[row*4 + col]
 
     return images
 
 
 def save_sample_image(model, testset, epoch_number):
-    originals = next(iter(testset.shuffle(32)))
+    originals = next(iter(testset))
     predictions = model.full_model(originals)
 
-    original_images = tf.saturate_cast(originals, tf.uint8)
-    prediction_images = tf.saturate_cast(predictions. tf.uint8)
+    # print(predictions[0])
+    # tf.io.write_file(f"Results/test.jpg", tf.io.encode_jpeg(tf.saturate_cast(predictions[0], tf.uint8)))
+
+    original_images = tf.image.convert_image_dtype(originals, tf.uint8, saturate=True)
+    prediction_images = tf.image.convert_image_dtype(predictions, tf.uint8, saturate=True)
 
     images = prepare_sample_images(original_images, prediction_images)
-    images = tf.image.encode_jpeg(images)
-    tf.io.write_file(f"Results/{epoch_number}.jpg", images)
+    cv2.imwrite(f"Results/{epoch_number}.jpg", images)
 
 
 if __name__ == '__main__':
@@ -184,8 +189,8 @@ if __name__ == '__main__':
     trainingset = trainingset.shuffle(8192, reshuffle_each_iteration=True)
 
     testset = testset.map(lambda i, data: data)
-    testset = testset.shuffle(8192)
     testset = testset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
+    testset = testset.shuffle(1024)
     testset = testset.batch(BATCH_SIZE, drop_remainder=True)
     testset = testset.take(4)
 
