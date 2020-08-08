@@ -21,7 +21,7 @@ IMG_HEIGHT = 256
 IMG_WIDTH = IMG_HEIGHT
 IMG_CHANNELS = 3
 BATCH_SIZE = 32
-EPOCHS = 1000
+EPOCHS = 100000
 FRAME_PER_CLIP = 25
 TEST_SAMPLE = 200
 EPOCH_LENGTH = 200
@@ -191,12 +191,14 @@ if __name__ == '__main__':
     trainingset = trainingset.map(lambda i, data: data)
     trainingset = trainingset.map(lambda x: x.batch(2, drop_remainder=True))
     trainingset = trainingset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
+    trainingset = trainingset.shuffle(256)
     trainingset = trainingset.batch(BATCH_SIZE, drop_remainder=True)
-    trainingset = trainingset.shuffle(8192, reshuffle_each_iteration=True)
+    trainingset = trainingset.shuffle(100, reshuffle_each_iteration=True)
 
     testset = testset.map(lambda i, data: data)
     testset = testset.map(lambda x: x.batch(2, drop_remainder=True))
     testset = testset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
+    testset = testset.shuffle(256)
     testset = testset.batch(BATCH_SIZE, drop_remainder=True)
 
     test_losses = []
@@ -205,4 +207,4 @@ if __name__ == '__main__':
         np.save('test_losses.npy', np.array(test_losses))
         np.save('training_losses.npy', np.array(dp.losses))
         dp.saveModel('weights')
-        save_sample_image(dp, testset.shuffle(1024), i)
+        save_sample_image(dp, testset.shuffle(16), i)
