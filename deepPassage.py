@@ -22,7 +22,7 @@ IMG_WIDTH = IMG_HEIGHT
 IMG_CHANNELS = 3
 BATCH_SIZE = 32
 EPOCHS = 1000
-FRAME_PER_CLIP = 50
+FRAME_PER_CLIP = 25
 TEST_SAMPLE = 200
 EPOCH_LENGTH = 200
 
@@ -192,14 +192,12 @@ if __name__ == '__main__':
     trainingset = trainingset.map(lambda x: x.batch(2, drop_remainder=True))
     trainingset = trainingset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
     trainingset = trainingset.batch(BATCH_SIZE, drop_remainder=True)
-    trainingset = trainingset.take(4)
     trainingset = trainingset.shuffle(8192, reshuffle_each_iteration=True)
 
     testset = testset.map(lambda i, data: data)
     testset = testset.map(lambda x: x.batch(2, drop_remainder=True))
     testset = testset.flat_map(lambda x: x.take(FRAME_PER_CLIP))
     testset = testset.batch(BATCH_SIZE, drop_remainder=True)
-    testset = testset.take(4)
 
     test_losses = []
     for i in tqdm(range(EPOCHS), unit='epochs'):
